@@ -1,0 +1,528 @@
+---
+title: "The Demography of Canada"
+subtitle: "Demography and Economic Growth Presentation"
+author: "Cheng Yu Hsiang"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+knitr::opts_chunk$set(fig.retina=2, out.width="100%")
+```
+```{r packages, message=FALSE}
+library(tidyverse)
+library(plyr)
+library(ggplot2)
+library(plotly)
+library(gganimate)
+library(ggmap)
+library(maptools)
+require(gapminder)
+library(gifski)
+library(RColorBrewer)
+library(magick)
+library(xaringan)
+```
+```{r}
+population <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\population_total.csv")
+density <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\population_density_per_square_km.csv")
+popGrowth <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\population_growth_annual_percent.csv")
+gdpPercap <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\income_per_person_gdppercapita_ppp_inflation_adjusted.csv")
+lifeExp <-  read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\life_expectancy_years.csv")
+fertility <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\children_per_woman_total_fertility.csv")
+dependency <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\children_and_elderly_per_100_adults.csv")
+birth <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\crude_birth_rate_births_per_1000_population.csv")
+death <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\gapminder\\crude_death_rate_deaths_per_1000_population.csv")
+pop_by_age <- read.csv(file="D:\\Demography and Economic Growth\\presentation1\\PopulationByAgeSex_Medium.csv")
+```
+```{r}
+population <- population %>% gather(key=year, value=pop, -country) 
+gdpPercap <- gdpPercap %>% gather(key=year, value=gdpPercap, -country) 
+lifeExp <- lifeExp %>% gather(key=year, value=lifeExp, -country)
+popGrowth <- popGrowth %>% gather(key=year, value=popGrowth, -country)
+fertility <- fertility %>% gather(key=year, value=fertility, -country)
+population$year <- population$year %>% substr(2,5) %>% as.integer()
+gdpPercap$year <- gdpPercap$year %>% substr(2,5) %>% as.integer()
+lifeExp$year <- lifeExp$year %>% substr(2,5) %>% as.integer()
+popGrowth$year <- popGrowth$year %>% substr(2,5) %>% as.integer()
+fertility$year <- fertility$year %>% substr(2,5) %>% as.integer()
+population <- population %>% filter(year <= 2018 & year >= 1960)
+gdpPercap <- gdpPercap %>% filter(year <= 2018 & year >= 1960)
+popGrowth <- popGrowth %>% 
+  rbind(data.frame(country = c("Canada", "France", "Germany", "Italy", "Japan", "United Kingdom", "United States"),
+                   year = rep(2018,7),
+                   popGrowth = c(1.4, 0.3, 0.3, -0.12, -0.3, 0.6, 0.7)))
+```
+```{r}
+data <- gapminder %>%
+  select(c("country","continent")) %>%
+  left_join(population) %>%
+  left_join(gdpPercap) %>%
+  left_join(lifeExp)
+data <- data[!is.na(data$year),]
+data$pop[which(data$country=="Canada" & data$year==2018)] <- 36953765
+
+G7 <- gapminder %>%
+  select(c("country","continent")) %>%
+  left_join(population) %>%
+  left_join(popGrowth) %>%
+  left_join(fertility)
+G7 <- G7 %>% 
+  filter(country %in% c("Canada", "France", "Germany", "Italy", "Japan", "United Kingdom", "United States"))
+G7$year <- G7$year %>% as.integer
+G7$pop[which(G7$country=="Canada" & G7$year==2018)] <- 36953765
+```
+# Outline
+
+### 1. Worldwide Demographic Indicators 
+### 2. Population Growth
+### 3. Age Pyramid
+### 4. Immigration
+### 5. Comprehensive Ranking System
+### 6. Reference
+  
+---
+class: center, middle, inverse
+# Kanata
+![plot](D:\\Demography and Economic Growth\\presentation1\\Picture\\Jacques_Cartier.jpg)
+<br/>
+Jacques Cartier (1491-1557)
+
+---
+# Worldwide Demographic Indicators 
+```{r p1}
+p1 <- ggplot(data, aes(x = gdpPercap, y = lifeExp, size = pop, colour = country)) +
+  geom_point(alpha = 0.7, show.legend = FALSE) +
+  scale_color_manual(values = country_colors) +
+  scale_size(range = c(2,12)) +
+  scale_x_log10() +
+  labs(title = 'Year: {frame_time}', x = 'GDP per capita', y = 'Life expectancy') +
+  transition_time(year) +
+  ease_aes('linear') 
+
+g7plot <- ggplot(G7, aes(x = fertility, y = popGrowth, size = pop, colour = country)) +
+  geom_point(alpha = 0.7, show.legend = FALSE) +
+  scale_color_manual(values = country_colors) +
+  labs(title = 'Year: {frame_time}', x = 'Fertility', y = 'Population Growth') +
+  transition_time(year) +
+  ease_aes('linear')
+```
+.pull-left[
+
+```{r, dev='svg'}
+animate(p1, fps = 4, renderer = gifski_renderer(loop = FALSE))
+```
+
+]
+
+
+
+.pull-right[
+
+```{r animation plot1}
+animate(g7plot, fps = 4, renderer = gifski_renderer(loop = FALSE))
+```
+
+]
+
+---
+# Worldwide Demographic Indicators 
+```{r p2, dev='svg'}
+data18 <- data %>% filter(year==2018)
+data18$alpha <- ifelse(data18$country %in% c("Canada", "France", "Germany", "Italy", "Japan", "United Kingdom", "United States"), TRUE, FALSE)
+p2 <- ggplot(data18, aes(x = gdpPercap, y = lifeExp, size = pop, colour = country, alpha = alpha)) +
+  geom_point(show.legend = FALSE) +
+  scale_alpha_discrete(range = c(0.01, 0.7)) +
+  scale_color_manual(values = country_colors) +
+  scale_size(range = c(2,12)) +
+  scale_x_log10() +
+  labs(title = 'Year: 2018', x = 'GDP per capita', y = 'Life expectancy') +
+  geom_vline(xintercept = 43800, linetype = "longdash", alpha=0.2) +
+  geom_hline(yintercept = 82.2, linetype = "longdash", alpha=0.2)
+
+G7.18 <- G7 %>% filter(year==2018)
+g7plot.18 <- ggplot(G7.18, aes(x = fertility, y = popGrowth, size = pop, colour = country)) +
+  geom_point(alpha = 0.7, show.legend = FALSE) +
+  scale_color_manual(values = country_colors) +
+  labs(title = 'Year: 2018', x = 'Fertility', y = 'Population Growth') +
+  geom_vline(xintercept = 1.56, linetype = "longdash", alpha=0.2) +
+  geom_hline(yintercept = 1.40, linetype = "longdash", alpha=0.2)
+```
+.pull-left[
+```{r, dev='svg'}
+ggplotly(p2, tooltip = c("colour", "size", "x", "y")) %>% hide_legend()
+```
+]
+
+
+.pull-right[
+```{r, dev='svg'}
+ggplotly(g7plot.18, tooltip = c("colour", "x", "y")) %>% hide_legend()
+```
+]
+---
+```{r p4.0, out.width='80%', dev='svg'}
+p3 <- p2 +
+  xlim(5000, 75000) +
+  ylim(70, 85) +
+  annotate("text", x=43800, y=82.2+1, label = "Population: 36,953,765", fontface="italic") +
+  annotate("text", x=43800, y=70, label = "GDP/capita:\n43800", size=3, fontface="italic") +
+  annotate("text", x=5000, y=82.2, label = "Life exp.:\n82.2", size=3, fontface="italic") +
+  geom_vline(xintercept = 43800, linetype = "longdash", alpha=0.2) +
+  geom_hline(yintercept = 82.2, linetype = "longdash", alpha=0.2) 
+p4.0 <- p3 + annotate("text", x=20000, y=80, label = "Canada", size=7, face="bold", family = "serif")
+p4.1 <- p4.0 + annotate("text", x=20000, y=78.5, label = "38th highest population country", size=4, family = "serif")
+p4.2 <- p4.1 + annotate("text", x=20000, y=77.75, label = "2nd largest country by total area", size=4, family = "serif")
+p4.3 <- p4.2 + annotate("text", x=20000, y=77.0, label = "228th the most densely country", size=4, family = "serif")
+p4.4 <- p4.3 + annotate("text", x=20000, y=76.25, label = "Population density: 4/square km", size=4, family = "serif")
+p4.0
+```
+
+---
+```{r p4.1, out.width='80%', dev='svg'}
+p4.1
+```
+
+---
+```{r p4.2, out.width='80%', dev='svg'}
+p4.2
+```
+---
+```{r p4.3, out.width='80%', dev='svg'}
+p4.3
+```
+---
+```{r p4.4, out.width='80%', dev='svg'}
+p4.4
+```
+---
+class: inverse, middle, center
+
+# Population Growth
+![plot](D:\\Demography and Economic Growth\\presentation1\\Picture\\Elizabeth_Bagshaw.jpg)
+<br/>
+Dr. Elizabeth Bagshaw (1881-1982)
+
+---
+# Population Growth
+```{r NatureGrowthAnimation}
+birth <- birth %>% gather(key=year, value=birthRate, -country)
+birth$year <- birth$year %>% substr(2,5) %>% as.integer()
+Canada_birth <- birth %>% filter(country=="Canada") %>% filter(year >= 1950)
+death <- death %>% gather(key=year, value=deathRate, -country)
+death$year <- death$year %>% substr(2,5) %>% as.integer()
+Canada_death <- death %>% filter(country=="Canada") %>% filter(year <= 2015)
+Canada_nature <- Canada_birth %>% 
+  left_join(Canada_death) %>%
+  mutate(natureIncreaseRate = birthRate - deathRate) %>%
+  gather(key=Type, value=Rate, -c(year,country))
+
+p8 <- ggplot(Canada_nature) + 
+  geom_line(aes(x = year, y = Rate, colour=Type), size=1.5) +
+  theme(legend.position="top") +
+  transition_reveal(year)
+```
+.pull-left[
+```{r, out.width='100%', dev='svg'}
+animate(p8, renderer = gifski_renderer(loop = FALSE))
+```
+]
+
+---
+# Population Growth
+```{r}
+Canada_nature <- data.frame(country=rep("Canada",6), year=c(2016,2017,2016,2017,2016,2017), 
+                            Type=c("birthRate", "birthRate", "deathRate", "deathRate", "natureIncreaseRate", "natureIncreaseRate"),
+                            Rate=c(10.6, 10.3, 7.4, 7.5, 3.2, 2.8)) %>% 
+                 rbind(Canada_nature)
+
+p9 <- ggplot(Canada_nature) + 
+  geom_line(aes(x = year, y = Rate, colour=Type), size=1.5) +
+  theme(legend.position="top") +
+  annotate("text", x=2017, y=10.3+1.5, label = "10.3", size=5, family = "serif", colour = "#F8766D") +
+  annotate("text", x=2017, y=7.5+1, label = "7.5", size=5, family = "serif", colour = "#00BA38") +
+  annotate("text", x=2017, y=2.8+1.5, label = "2.8", size=5, family = "serif", colour = "#619CFF")
+```
+
+```{r}
+Canada_popGrowth <- popGrowth %>% filter(country=="Canada")
+pop_gather <- Canada_popGrowth %>%
+  gather(key=Type, value=Rate, -c(year, country))
+pop_gather$Rate <- pop_gather$Rate*10
+Canada_pop <- Canada_nature %>%
+  filter(Type=="natureIncreaseRate") %>% 
+  rbind(pop_gather)
+p10 <- ggplot(Canada_pop) + 
+  theme(legend.position="top") +
+  geom_line(aes(x = year, y = Rate, colour=Type), size=1.5) +
+  annotate("text", x=2017, y=2.8+1.5, label = "2.8", size=5, family = "serif", colour = "#F8766D") +
+  annotate("text", x=2017, y=12.2+2.5, label = "12.2", size=5, family = "serif", colour = "#00BFC4")
+```
+.pull-left[
+```{r, out.width='100%', dev='svg'}
+p9
+```
+]
+
+
+.pull-right[
+```{r, out.width='100%', dev='svg'}
+p10
+```
+]
+
+---
+# Age Pyramid
+```{r}
+Canada_popAge <- pop_by_age %>% filter(Location == "Canada")
+Canada_popAge$PopMale <- Canada_popAge$PopMale * -1
+Canada_popAgeGrp <- Canada_popAge %>%
+  select(c(Location, Time, AgeGrp, AgeGrpStart, PopTotal, PopMale, PopFemale))
+Canada_popAgeGrp <- Canada_popAgeGrp %>%
+  gather(key=Gender, value=Population, -c(Location, Time, AgeGrp, AgeGrpStart, PopTotal)) %>%
+  filter(Time <= 2030)
+Canada_popAgeGrp$Gender <- Canada_popAgeGrp$Gender %>% 
+  mapvalues(from=c("PopMale","PopFemale"), to=c("Male","Female")) %>%
+  as.factor
+
+p11 <- ggplot(Canada_popAgeGrp, aes(x = AgeGrpStart, y = Population, fill = Gender)) + 
+  geom_bar(data = subset(Canada_popAgeGrp, Gender=="Male"), stat = "identity") + 
+  geom_bar(data = subset(Canada_popAgeGrp, Gender=="Female"), stat = "identity") + 
+  labs(x = "Age", y = "Population", title = "Age Pyramid  Year: {frame_time}") +
+  scale_y_continuous(breaks = seq(-3000, 3000, 500), 
+                     labels = paste0(as.character(c(seq(3000, 0, -500), seq(500, 3000, 500))), "k")) + 
+  coord_flip() + 
+  scale_fill_brewer(palette = "Set1") + 
+  theme_bw() +
+  transition_time(Time) +
+  enter_fade() +
+  exit_fade() +
+  ease_aes('sine-in-out') 
+```
+```{r}
+Canada_PopWorkingAge <-  Canada_popAge %>%
+  filter(AgeGrpStart>=15 & AgeGrpStart<65) %>%
+  group_by(Time) %>%
+  do(data.frame(PopWorkingAge = sum(.$PopTotal)))
+Canada_popTotal <- Canada_popAge %>%
+  group_by(Time) %>%
+  do(data.frame(PopTotal = sum(.$PopTotal)))
+Canada_PopWorkingAge <- Canada_PopWorkingAge %>% 
+  left_join(Canada_popTotal) %>% 
+  mutate(PopWorkingAgeRate = PopWorkingAge / PopTotal) %>%
+  filter(Time <= 2030)
+p13 <- ggplot(Canada_PopWorkingAge, aes(x = Time, y = PopWorkingAgeRate, label = paste0("Working Age Rate:\n", round(PopWorkingAgeRate, 3)))) + 
+  geom_line(color="#4DAF4A", size=2.5) +
+  geom_text(aes(2000, 0.73), size = 7, hjust = 0, color = "#4DAF4A", family = "serif") +
+  transition_reveal(Time) 
+```
+.pull-left[
+```{r, out.width='100%', dev='svg'}
+animate(p11, fps=3, renderer = gifski_renderer(loop = FALSE))
+# anim_save("Population Pyramid.gif", animate(p11, fps=3, renderer = gifski_renderer(loop = TRUE)))
+```
+]
+
+
+.pull-right[
+```{r, out.width='100%', dev='svg'}
+animate(p13, fps =3, renderer = gifski_renderer(loop = FALSE))
+# anim_save("Working Age Rate.gif", animate(p13, fps =3, renderer = gifski_renderer(loop = TRUE)))
+```
+]
+
+---
+# Age Pyramid
+```{r}
+Canada_popAge2018 <- Canada_popAge %>%
+  filter(Time==2018) %>%
+  select(c(Location, Time, AgeGrp, AgeGrpStart, PopTotal, PopMale, PopFemale))
+Canada_popAge2018 <- Canada_popAge2018 %>%
+  mutate(PopWorkingAge = ifelse(AgeGrpStart>=15 & AgeGrpStart<65, PopTotal, 0)) %>%
+  group_by(Time) %>%
+  mutate(PopWorkingAge = sum(PopWorkingAge)) %>%
+  ungroup
+Canada_popAge2018 <- Canada_popAge2018 %>%
+  gather(key=Gender, value=Population, -c(Location, Time, AgeGrp, AgeGrpStart, PopTotal, PopWorkingAge))
+Canada_popAge2018$Gender <- Canada_popAge2018$Gender %>% 
+  mapvalues(from=c("PopMale","PopFemale"), to=c("Male","Female")) %>%
+  as.factor
+
+p12 <- ggplot(Canada_popAge2018, aes(x = AgeGrpStart, y = Population, fill = Gender)) + 
+  geom_bar(data = subset(Canada_popAge2018, Gender=="Male"), stat = "identity") + 
+  geom_bar(data = subset(Canada_popAge2018, Gender=="Female"), stat = "identity") + 
+  labs(x = "Age", y = "Population", title = "Age Pyramid Year: 2018") +
+  scale_y_continuous(breaks = seq(-1500, 1500, 500), 
+                     labels = paste0(as.character(c(seq(1500, 0, -500), seq(500, 1500, 500))), "k")) + 
+  coord_flip() + 
+  scale_fill_brewer(palette = "Set1") + 
+  theme_bw()
+```
+```{r}
+p14 <- ggplot(Canada_PopWorkingAge, aes(x = Time, y = PopWorkingAgeRate, label = "Working Age Rate:\n0.665")) + 
+  geom_line(color="#4DAF4A", size=1.5) +
+  ylim(0.58,0.73) +
+  geom_text(aes(2000, 0.73), size = 7, hjust = 0, color = "#4DAF4A", family = "serif")
+```
+.pull-left[
+```{r, out.width='100%', dev='svg'}
+p12
+```
+]
+
+
+.pull-right[
+```{r, out.width='100%', dev='svg'}
+p14
+```
+]
+
+---
+```{r, out.width='80%', dev='svg'}
+dependency <- dependency %>% gather(key=year, value=dependency, -country)
+dependency$year <- dependency$year %>% substr(2,5) %>% as.integer()
+G6dependency <- gapminder %>%
+  select(c("country","continent")) %>%
+  left_join(dependency) 
+G6dependency <- G6dependency %>% 
+  filter(country %in% c("Canada", "France", "Germany", "Italy", "Japan", "United Kingdom", "United States")) %>%
+  filter(year <= 2030)
+G6dependency$year <- G6dependency$year %>% as.integer
+
+p16 <- ggplot(G6dependency, aes(x = year, y = dependency, colour=country)) + 
+  geom_line(size=1.1) 
+
+p16
+```
+---
+class: inverse, middle, center
+
+# Immigration
+![plot](D:\\Demography and Economic Growth\\presentation1\\Picture\\Ahmed_Hussen.jpg)
+<br/>
+Ahmed Hussen (1976-)
+---
+# Immigration
+<video src="D:\\Demography and Economic Growth\\presentation1\\Picture\\2016 Census Welcome to Canada 150 years of immigration.mp4"></video>
+### Source: Statistics Canada, 2016 Census: Welcome to Canada: 150 years of immigration
+
+---
+```{r}
+immigration2017 <- data.frame(Country=c("India","Philippines","China","Syria","United States of America","Pakistan","France","Nigeria","United Kingdom","Iraq"),
+                              long=c(64.4031848,113.5669524,86.0170119,36.7583453,-113.753164,60.3243379,-6.9324347,3.2537032,-13.4357636,39.2194941)+13,
+                              lat=c(20.0075033,11.5560048,34.4094545,34.7943114,36.2058089,30.0490667,45.8658644,20.5832806,54.2181064,33.1400839),
+                              population=c(51651,40857,30279,12044,9100,7656,6600,5459,5293,4740),
+                              Proportion=c(18.0,14.3,10.6,4.2,3.2,2.7,2.3,1.9,1.8,1.7))
+
+mapWorld <- borders("world", colour="gray50", fill="gray50", alpha=.4) # create a layer of borders
+mp <- ggplot() + mapWorld
+p15 <- mp + 
+  geom_point(data=immigration2017, aes(x=long, y=lat, colour=Country, size=Proportion), alpha=.7) +
+  labs(title = "Canada Immigration in 2017 (Total:286,479)") +
+  guides(size=FALSE)
+```
+```{r, out.width='80%', dev='svg'}
+ggplotly(p15, tooltip = c("colour", "size"))
+```
+---
+# Comprehensive Ranking System 
+Launched in January 2015, Express Entry is Canada¡¦s application management system for certain economic immigration programs.
+
+1. [Points System](https://www.canapprove.com/canada-immigration-points-system/)
+2. [Express Entry](https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/eligibility/criteria-comprehensive-ranking-system/grid.html)
+- Age
+- Level of education 
+- Official languages proficiency 
+- Canadian work experience 
+
+---
+```{r, out.width='80%', dev='svg'}
+dist_ethic <- data.frame(Asia=c(69.4,26.5,4.1),
+                         African=c(62.5,31.0,6.5),
+                         Latin_Central_SouthAmerican=c(58.1,35.4,6.5),
+                         Carribbean=c(47.9,41.5,10.6),
+                         Oceania=c(36.6,39.8,23.5),
+                         Total=c(23.9,17.7,58.4),
+                         European=c(15.1,19.9,65.1),
+                         OtherNorthAmerican=c(2.0,10.0,88.0),
+                         NorthAmericanAboriginal=c(1.3,5.7,93.0),
+                         Generation=c("1st","2nd","3rd+"))
+dist_ethic_gather <- dist_ethic %>% gather(key=Origins, value=Percent, -Generation)
+dist_ethic_gather$Origins <- as.factor(dist_ethic_gather$Origins)
+dist_ethic_gather$Origins <- factor(dist_ethic_gather$Origins, levels = c("Asia","African","Latin_Central_SouthAmerican",
+                                                                          "Carribbean","Oceania","Total","European",
+                                                                          "OtherNorthAmerican","NorthAmericanAboriginal"))
+p17 <- ggplot(dist_ethic_gather, aes(fill=Generation, y=Percent, x=Origins)) + 
+  geom_bar(stat="identity") +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Distribution of ethic origins of the population by generation") +
+  coord_flip() 
+ggplotly(p17)
+```
+---
+class: inverse, middle, center
+
+# Reference
+![plot](D:\\Demography and Economic Growth\\presentation1\\Picture\\Justin_Trudeau_in_Lima_Peru.jpg)
+<br/>
+Justin Pierre James Trudeau (1971-)
+
+---
+.pull-left[
+# Data
+```{r ,echo=TRUE, eval=FALSE, tidy=FALSE}
+# Gapminder & UN
+population <- read.csv("population_total.csv")
+density <- read.csv("population_density_per_square_km.csv")
+popGrowth <- read.csv("population_growth_annual_percent.csv")
+gdpPercap <- read.csv("income_per_person_gdppercapita_ppp_inflation_adjusted.csv")
+lifeExp <-  read.csv("life_expectancy_years.csv")
+fertility <- read.csv("children_per_woman_total_fertility.csv")
+dependency <- read.csv("children_and_elderly_per_100_adults.csv")
+birth <- read.csv("crude_birth_rate_births_per_1000_population.csv")
+death <- read.csv("crude_death_rate_deaths_per_1000_population.csv")
+# Canada Open Government
+area <- readShapePoly("gpr_000b11a_e.shp")
+# Statistics Canada
+pop_by_age <- read.csv("PopulationByAgeSex_Medium.csv")
+# PS: all pictures are from Wiki
+```
+]
+
+
+.pull-right[
+# Packages
+```{r ,echo=TRUE, eval=FALSE, tidy=FALSE}
+# Data manipulation
+library(tidyverse)
+library(plyr)
+# Graph
+library(ggplot2)
+library(RColorBrewer)
+library(plotly)
+# Animation
+library(gganimate)
+library(magick)
+library(gifski)
+# Map
+library(ggmap)
+library(maptools)
+# Slidesshow
+library(xaringan)
+```
+]
+
+---
+class: inverse, middle, center
+
+# End
+![plot](D:\\Demography and Economic Growth\\presentation1\\Picture\\BeaverS.jpg)
+<br/>
+The North American Beaver
